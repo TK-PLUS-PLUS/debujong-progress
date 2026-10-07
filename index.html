@@ -3,32 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>デブ雀 開発進捗</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@600;700&display=swap" rel="stylesheet">
+  <title>NECOMOS STUDIO</title>
+  <script>
+    (function () {
+      var theme = localStorage.getItem("necomos-theme");
+      if (theme !== "light" && theme !== "dark") {
+        theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
   <link rel="stylesheet" href="./gantt.css">
 </head>
-<body>
+<body data-screen="home">
   <header class="top">
-    <div class="brand">
-      <span class="seal" aria-hidden="true">雀</span>
-      <div>
-        <p class="eyebrow">DebuJong 2026</p>
-        <h1 id="projectTitle">デブ雀</h1>
-      </div>
-    </div>
+    <a class="brand" href="#/">
+      <img class="logo logo-on-light" src="./assets/necomos-mark.png" alt="">
+      <img class="logo logo-on-dark" src="./assets/necomos-mark-white.png" alt="">
+      <span class="studio">NECOMOS STUDIO</span>
+    </a>
+    <h1 class="only-project" id="projectTitle"></h1>
     <p class="updated" id="updatedLabel"></p>
     <div class="top-actions">
-      <div class="seg" role="group" aria-label="表示">
+      <select id="projectJump" class="jump only-project" aria-label="プロジェクト"></select>
+      <div class="seg only-project" role="group" aria-label="括り">
+        <button type="button" id="groupMember" class="is-on" aria-pressed="true">メンバー</button>
+        <button type="button" id="groupGenre" aria-pressed="false">ジャンル</button>
+      </div>
+      <div class="seg only-project" role="group" aria-label="表示">
         <button type="button" id="viewChart" class="is-on" aria-pressed="true">チャート</button>
         <button type="button" id="viewList" aria-pressed="false">一覧</button>
       </div>
-      <div class="seg" role="group" aria-label="縮尺">
+      <div class="seg only-project" role="group" aria-label="縮尺">
         <button type="button" data-zoom="day">日</button>
         <button type="button" data-zoom="week" class="is-on">週</button>
         <button type="button" data-zoom="month">月</button>
       </div>
+      <button type="button" class="btn" id="toggleTheme">ダーク</button>
       <button type="button" class="btn" id="openHelp">使い方</button>
       <button type="button" class="btn" id="openSettings">設定</button>
       <button type="button" class="btn primary" id="saveGitHub">GitHubに保存</button>
@@ -36,23 +47,26 @@
   </header>
 
   <div class="banner" id="banner">
-    <p>バーをドラッグすると期間が変わり、クリックで内容を編集できます。変更はこのブラウザに下書きとして残り、JSON のダウンロードか「GitHubに保存」で共有します。</p>
-    <button type="button" id="dismissBanner">閉じる</button>
+    <p>バーをドラッグすると期間が変わり、クリックで内容を編集できます。メンバーとジャンルのどちらで行を分けるか切り替えられます。変更はこのブラウザに下書きとして残り、JSON のダウンロードか「GitHubに保存」で共有します。</p>
+    <button type="button" class="btn" id="dismissBanner">閉じる</button>
   </div>
 
   <div class="status-line" id="statusLine" role="status"></div>
 
   <section class="toolbar">
-    <label class="search">
+    <label class="search only-project">
       <span class="sr">検索</span>
       <input id="search" type="search" placeholder="タスクを検索" autocomplete="off">
     </label>
-    <div class="chips" id="statusChips"></div>
-    <div class="chips" id="memberChips"></div>
+    <div class="chips only-project" id="statusChips"></div>
+    <div class="chips only-project" id="memberChips"></div>
+    <div class="chips only-project" id="genreChips"></div>
     <div class="toolbar-actions">
-      <button type="button" class="btn" id="addMember">メンバーを追加</button>
-      <button type="button" class="btn" id="addMilestone">マイルストーン</button>
-      <button type="button" class="btn primary" id="addTask">タスクを追加</button>
+      <button type="button" class="btn only-project" id="addMember">メンバーを追加</button>
+      <button type="button" class="btn only-project" id="addGenre">ジャンルを追加</button>
+      <button type="button" class="btn only-project" id="addMilestone">マイルストーン</button>
+      <button type="button" class="btn only-project" id="editProject">プロジェクト名</button>
+      <button type="button" class="btn primary only-project" id="addTask">タスクを追加</button>
     </div>
   </section>
 
@@ -71,10 +85,13 @@
         <label>担当
           <select id="fMember" name="memberId" required></select>
         </label>
-        <label>状態
-          <select id="fStatus" name="status"></select>
+        <label>ジャンル
+          <select id="fGenre" name="genreId" required></select>
         </label>
       </div>
+      <label>状態
+        <select id="fStatus" name="status"></select>
+      </label>
       <label>進捗 <span id="fProgressLabel">0%</span>
         <input id="fProgress" name="progress" type="range" min="0" max="100" value="0">
       </label>
@@ -136,8 +153,8 @@
       <label>表示名
         <input id="mName" required maxlength="40">
       </label>
-      <label>担当・ブランチ
-        <input id="mRole" maxlength="40" placeholder="α-system">
+      <label>役割
+        <input id="mRole" maxlength="40" placeholder="実装">
       </label>
       <label>色
         <input id="mColor" type="color" value="#c2412d">
@@ -151,14 +168,54 @@
     </form>
   </dialog>
 
+  <dialog id="genreDialog">
+    <form id="genreForm">
+      <header class="dialog-head">
+        <h2 id="genreDialogTitle">ジャンル</h2>
+        <button type="button" class="icon-btn" id="closeGenre" aria-label="閉じる">×</button>
+      </header>
+      <p class="hint">ジャンルはスタジオ全体で共有します。どのプロジェクトのタスクにも付けられます。</p>
+      <label>名前
+        <input id="gName" required maxlength="40">
+      </label>
+      <label>色
+        <input id="gColor" type="color" value="#1f4e79">
+      </label>
+      <footer class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteGenre">削除</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelGenre">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="projectDialog">
+    <form id="projectForm">
+      <header class="dialog-head">
+        <h2 id="projectDialogTitle">プロジェクト</h2>
+        <button type="button" class="icon-btn" id="closeProject" aria-label="閉じる">×</button>
+      </header>
+      <label>名前
+        <input id="pName" required maxlength="40">
+      </label>
+      <footer class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteProject">削除</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelProject">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="settingsDialog">
     <form id="settingsForm">
       <header class="dialog-head">
         <h2>設定</h2>
         <button type="button" class="icon-btn" id="closeSettings" aria-label="閉じる">×</button>
       </header>
-      <label>プロジェクト名
-        <input id="sProject" maxlength="40">
+      <label>スタジオ名
+        <input id="sStudio" maxlength="40">
       </label>
       <fieldset>
         <legend>GitHub へ直接保存</legend>
@@ -168,7 +225,7 @@
             <input id="sOwner" required value="TK-PLUS-PLUS">
           </label>
           <label>Repository
-            <input id="sRepo" required value="debujong-progress">
+            <input id="sRepo" required value="necomos-studio">
           </label>
         </div>
         <div class="grid-2">
@@ -209,12 +266,15 @@
       <h3>チャートの操作</h3>
       <ul>
         <li>バーを左右にドラッグすると期間がずれます。端をドラッグすると開始日・終了日だけ変わります。</li>
-        <li>バーをクリックすると編集できます。メンバー名をクリックすると担当名と色を変えられます。</li>
-        <li>「マイルストーン」はプロジェクト全体の節目です。菱形をドラッグすると日付が変わり、クリックで名前を編集できます。</li>
+        <li>「メンバー」で分けると行が担当者、バーの色がジャンルです。「ジャンル」で分けると逆になります。</li>
+        <li>バーをクリックすると編集できます。行の名前をクリックするとメンバーかジャンルを編集できます。</li>
+        <li>マイルストーンはプロジェクト全体の節目です。菱形をドラッグすると日付が変わり、クリックで名前を編集できます。</li>
         <li>編集内容はまずこのブラウザの下書きに残ります。共有するには <code>schedule.json</code> をコミットして push するか、「GitHubに保存」を使います。</li>
       </ul>
+      <h3>プロジェクト</h3>
+      <p class="hint">トップの一覧からプロジェクトを開きます。新しい作品は「新しいプロジェクト」から追加します。アドレスは <code>#/プロジェクトID</code> です。</p>
       <h3>公開ページ</h3>
-      <p class="hint">進捗は <a href="https://tk-plus-plus.github.io/debujong-progress/">https://tk-plus-plus.github.io/debujong-progress/</a> で公開しています。編集して push すると、しばらくしてこのページにも反映されます。</p>
+      <p class="hint">進捗は <a href="https://tk-plus-plus.github.io/necomos-studio/">https://tk-plus-plus.github.io/necomos-studio/</a> で公開しています。編集して push すると、しばらくしてこのページにも反映されます。</p>
       <h3>手元で開く</h3>
       <p>リポジトリのフォルダで <code>py -3 -m http.server 8765</code> を実行し、<code>http://127.0.0.1:8765/</code> を開きます。</p>
       <footer class="dialog-actions">
