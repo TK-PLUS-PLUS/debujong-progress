@@ -53,20 +53,34 @@
 
   <div class="status-line" id="statusLine" role="status"></div>
 
-  <section class="toolbar">
-    <label class="search only-project">
-      <span class="sr">検索</span>
-      <input id="search" type="search" placeholder="タスクを検索" autocomplete="off">
-    </label>
-    <div class="chips only-project" id="statusChips"></div>
-    <div class="chips only-project" id="memberChips"></div>
-    <div class="chips only-project" id="genreChips"></div>
+  <section class="toolbar only-project">
+    <div class="filter-bar">
+      <label class="search">
+        <span class="sr">検索</span>
+        <input id="search" type="search" placeholder="タスクを検索" autocomplete="off">
+      </label>
+      <div class="filter-group">
+        <span class="filter-label">状態</span>
+        <div class="status-seg" id="statusChips" role="group" aria-label="状態"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">担当</span>
+        <div class="chips people" id="memberChips" role="group" aria-label="担当"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">ジャンル</span>
+        <div class="chips kinds" id="genreChips" role="group" aria-label="ジャンル"></div>
+      </div>
+    </div>
     <div class="toolbar-actions">
-      <button type="button" class="btn only-project" id="addMember">メンバーを追加</button>
-      <button type="button" class="btn only-project" id="addGenre">ジャンルを追加</button>
-      <button type="button" class="btn only-project" id="addMilestone">マイルストーン</button>
-      <button type="button" class="btn only-project" id="editProject">プロジェクト名</button>
-      <button type="button" class="btn primary only-project" id="addTask">タスクを追加</button>
+      <button type="button" class="btn primary" id="addTask">タスクを追加</button>
+      <div class="manage">
+        <span class="filter-label">管理</span>
+        <button type="button" class="btn quiet" id="openMembers">メンバー</button>
+        <button type="button" class="btn quiet" id="openGenres">ジャンル</button>
+        <button type="button" class="btn quiet" id="addMilestone">マイルストーン</button>
+        <button type="button" class="btn quiet" id="editProject">プロジェクト名</button>
+      </div>
     </div>
   </section>
 
@@ -163,6 +177,42 @@
         <button type="button" class="btn danger" id="deleteMember">削除</button>
         <span class="spacer"></span>
         <button type="button" class="btn" id="cancelMember">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="memberRoster">
+    <form id="memberRosterForm">
+      <header class="dialog-head">
+        <h2>メンバー</h2>
+        <button type="button" class="icon-btn" id="closeMemberRoster" aria-label="閉じる">×</button>
+      </header>
+      <p class="hint">このプロジェクトの担当者です。名前、役割、色をまとめて変えられます。</p>
+      <div class="roster-list" id="memberRosterList"></div>
+      <button type="button" class="btn" id="memberRosterAdd">メンバーを追加</button>
+      <p class="hint" id="memberRosterMessage"></p>
+      <footer class="dialog-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelMemberRoster">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="genreRoster">
+    <form id="genreRosterForm">
+      <header class="dialog-head">
+        <h2>ジャンル</h2>
+        <button type="button" class="icon-btn" id="closeGenreRoster" aria-label="閉じる">×</button>
+      </header>
+      <p class="hint">スタジオ全体で共有します。どのプロジェクトのタスクにも付けられます。</p>
+      <div class="roster-list" id="genreRosterList"></div>
+      <button type="button" class="btn" id="genreRosterAdd">ジャンルを追加</button>
+      <p class="hint" id="genreRosterMessage"></p>
+      <footer class="dialog-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelGenreRoster">キャンセル</button>
         <button type="submit" class="btn primary">保存</button>
       </footer>
     </form>
@@ -267,7 +317,8 @@
       <ul>
         <li>バーを左右にドラッグすると期間がずれます。端をドラッグすると開始日・終了日だけ変わります。</li>
         <li>「メンバー」で分けると行が担当者、バーの色がジャンルです。「ジャンル」で分けると逆になります。</li>
-        <li>ジャンル名の「編集」で名前と色を変えられます。「ジャンルを追加」で新しいジャンルを作れます。ジャンルはスタジオ全体で共有されます。</li>
+        <li>状態・担当・ジャンルは、それぞれ別の絞り込みです。</li>
+        <li>登録済みのメンバーとジャンルは、右の「管理」からまとめて編集・追加します。マイルストーンとプロジェクト名もそこにあります。</li>
         <li>バーをクリックすると編集できます。行の名前をクリックするとメンバーかジャンルを編集できます。</li>
         <li>マイルストーンはプロジェクト全体の節目です。菱形をドラッグすると日付が変わり、クリックで名前を編集できます。</li>
         <li>編集内容はまずこのブラウザの下書きに残ります。共有するには <code>schedule.json</code> をコミットして push するか、「GitHubに保存」を使います。</li>

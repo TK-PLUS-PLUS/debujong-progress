@@ -343,19 +343,20 @@
 
     $("statusChips").innerHTML = ["all", ...Object.keys(STATUS)].map((key) => {
       const label = key === "all" ? "すべて" : STATUS[key];
-      return `<button type="button" class="chip${state.status === key ? " is-on" : ""}" data-status="${key}">${label}</button>`;
+      return `<button type="button" class="${state.status === key ? "is-on" : ""}" data-status="${key}">${label}</button>`;
     }).join("");
 
     const memberButtons = [`<button type="button" class="chip${state.member === "all" ? " is-on" : ""}" data-member="all">全員</button>`];
     current.members.forEach((member) => {
-      memberButtons.push(`<button type="button" class="chip${state.member === member.id ? " is-on" : ""}" data-member="${esc(member.id)}"><i class="swatch" style="background:${safeColor(member.color)}"></i>${esc(member.name)}</button>`);
+      const color = safeColor(member.color);
+      memberButtons.push(`<button type="button" class="chip${state.member === member.id ? " is-on" : ""}" data-member="${esc(member.id)}" style="--person:${color}"><i class="swatch" style="background:${color}"></i>${esc(member.name)}</button>`);
     });
     $("memberChips").innerHTML = memberButtons.join("");
 
-    const genreButtons = [`<button type="button" class="chip${state.genre === "all" ? " is-on" : ""}" data-genre="all">全ジャンル</button>`];
+    const genreButtons = [`<button type="button" class="chip${state.genre === "all" ? " is-on" : ""}" data-genre="all">すべて</button>`];
     state.studio.genres.forEach((genre) => {
-      const on = state.genre === genre.id ? " is-on" : "";
-      genreButtons.push(`<span class="chip-set${on}"><button type="button" class="chip" data-genre="${esc(genre.id)}"><i class="swatch" style="background:${safeColor(genre.color)}"></i>${esc(genre.name)}</button><button type="button" class="chip-edit" data-edit-genre-chip="${esc(genre.id)}" aria-label="${esc(genre.name)}を編集">編集</button></span>`);
+      const color = safeColor(genre.color);
+      genreButtons.push(`<button type="button" class="chip${state.genre === genre.id ? " is-on" : ""}" data-genre="${esc(genre.id)}" style="--kind:${color}">${esc(genre.name)}</button>`);
     });
     $("genreChips").innerHTML = genreButtons.join("");
 
@@ -865,6 +866,49 @@
     window.addEventListener("pointerup", up);
   }
 
+  function rosterRow(kind, item) {
+    const color = safeColor(item?.color || COLORS[0]);
+    const role = kind === "member"
+      ? `<input class="roster-role" maxlength="40" placeholder="役割" value="${esc(item?.role || "")}">`
+      : "";
+    return `<div class="roster-row" data-id="${esc(item?.id || "")}">
+      <input class="roster-color" type="color" value="${color}" aria-label="色">
+      <input class="roster-name" maxlength="40" placeholder="名前" value="${esc(item?.name || "")}" required>
+      ${role}
+      <button type="button" class="btn danger roster-remove">削除</button>
+    </div>`;
+  }
+
+  function openMemberRoster() {
+    const current = project();
+    $("memberRosterMessage").textContent = "";
+    $("memberRosterList").innerHTML = current.members.map((member) => rosterRow("member", member)).join("");
+    $("memberRoster").showModal();
+  }
+
+  function openGenreRoster() {
+    $("genreRosterMessage").textContent = "";
+    $("genreRosterList").innerHTML = state.studio.genres.map((genre) => rosterRow("genre", genre)).join("");
+    $("genreRoster").showModal();
+  }
+
+  function readRoster(list, kind) {
+    const rows = [...list.querySelectorAll(".roster-row")];
+    const items = [];
+    for (const row of rows) {
+      const name = row.querySelector(".roster-name").value.trim();
+      if (!name) return { error: "名前が空の行があります。", row };
+      const item = {
+        id: row.dataset.id || uid(kind),
+        name,
+        color: safeColor(row.querySelector(".roster-color").value),
+      };
+      if (kind === "member") item.role = row.querySelector(".roster-role").value.trim();
+      items.push(item);
+    }
+    return { items };
+  }
+
   function bind() {
     syncThemeButton();
     $("toggleTheme").onclick = () => {
@@ -893,21 +937,91 @@
       render();
     };
     $("genreChips").onclick = (event) => {
-      const edit = event.target.closest("[data-edit-genre-chip]");
-      if (edit) {
-        openGenreDialog(genreById(edit.dataset.editGenreChip));
-        return;
-      }
       const button = event.target.closest("[data-genre]");
       if (!button) return;
       state.genre = button.dataset.genre;
       render();
     };
     $("addTask").onclick = () => openTaskDialog(null);
-    $("addMember").onclick = () => openMemberDialog(null);
-    $("addGenre").onclick = () => openGenreDialog(null);
+    $("openMembers").onclick = () => openMemberRoster();
+    $("openGenres").onclick = () => openGenreRoster();
     $("addMilestone").onclick = () => openMilestoneDialog(null);
     $("editProject").onclick = () => openProjectDialog(project());
+
+    $("closeMemberRoster").onclick = () => $("memberRoster").close();
+    $("cancelMemberRoster").onclick = () => $("memberRoster").close();
+    $("memberRosterAdd").onclick = () => {
+      $("memberRosterList").insertAdjacentHTML("beforeend", rosterRow("member", {
+        color: COLORS[project().members.length % COLORS.length],
+      }));
+      $("memberRosterList").lastElementChild.querySelector(".roster-name").focus();
+    };
+    $("memberRosterList").onclick = (event) => {
+      const button = event.target.closest(".roster-remove");
+      if (!button) return;
+      const row = button.closest(".roster-row");
+      const member = memberById(row.dataset.id);
+      const owned = member ? project().tasks.filter((task) => task.memberId === member.id).length : 0;
+      if (owned && !window.confirm(`「${member.name}」とタスク ${owned} 件を削除しますか？`)) return;
+      row.remove();
+    };
+    $("memberRosterForm").onsubmit = (event) => {
+      event.preventDefault();
+      const current = project();
+      const result = readRoster($("memberRosterList"), "member");
+      if (result.error) {
+        $("memberRosterMessage").textContent = result.error;
+        result.row.querySelector(".roster-name").focus();
+        return;
+      }
+      const removed = current.members.filter((member) => !result.items.some((item) => item.id === member.id));
+      current.members = result.items;
+      const removedIds = new Set(removed.map((member) => member.id));
+      current.tasks = current.tasks.filter((task) => !removedIds.has(task.memberId));
+      if (removedIds.has(state.member)) state.member = "all";
+      $("memberRoster").close();
+      touch();
+    };
+
+    $("closeGenreRoster").onclick = () => $("genreRoster").close();
+    $("cancelGenreRoster").onclick = () => $("genreRoster").close();
+    $("genreRosterAdd").onclick = () => {
+      $("genreRosterList").insertAdjacentHTML("beforeend", rosterRow("genre", {
+        color: COLORS[state.studio.genres.length % COLORS.length],
+      }));
+      $("genreRosterList").lastElementChild.querySelector(".roster-name").focus();
+    };
+    $("genreRosterList").onclick = (event) => {
+      const button = event.target.closest(".roster-remove");
+      if (!button) return;
+      const row = button.closest(".roster-row");
+      const genre = genreById(row.dataset.id);
+      const owned = genre ? state.studio.projects.reduce((sum, item) => (
+        sum + item.tasks.filter((task) => task.genreId === genre.id).length
+      ), 0) : 0;
+      if (owned && !window.confirm(`「${genre.name}」を外すと、付いているタスク ${owned} 件はジャンル未設定になります。削除しますか？`)) return;
+      row.remove();
+    };
+    $("genreRosterForm").onsubmit = (event) => {
+      event.preventDefault();
+      const result = readRoster($("genreRosterList"), "genre");
+      if (result.error) {
+        $("genreRosterMessage").textContent = result.error;
+        result.row.querySelector(".roster-name").focus();
+        return;
+      }
+      const removed = state.studio.genres.filter((genre) => !result.items.some((item) => item.id === genre.id));
+      const removedIds = new Set(removed.map((genre) => genre.id));
+      state.studio.genres = result.items;
+      state.studio.projects.forEach((item) => {
+        item.tasks.forEach((task) => {
+          if (removedIds.has(task.genreId)) task.genreId = "";
+        });
+      });
+      if (removedIds.has(state.genre)) state.genre = "all";
+      $("genreRoster").close();
+      touch();
+    };
 
     $("closeMilestone").onclick = () => $("milestoneDialog").close();
     $("cancelMilestone").onclick = () => $("milestoneDialog").close();
