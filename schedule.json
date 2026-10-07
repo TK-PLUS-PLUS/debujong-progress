@@ -4,7 +4,7 @@
   "updated": "2026-10-08",
   "genres": [
     { "id": "progress", "name": "進行管理", "color": "#5c6b7a" },
-    { "id": "admin", "name": "経理・手続き", "color": "#8a6a3b" },
+    { "id": "admin", "name": "契約・手続き", "color": "#8a6a3b" },
     { "id": "gamedesign", "name": "ゲームデザイン", "color": "#2f6f5e" },
     { "id": "level", "name": "レベルデザイン", "color": "#3d7a6a" },
     { "id": "ux", "name": "UXデザイン", "color": "#3d5a80" },

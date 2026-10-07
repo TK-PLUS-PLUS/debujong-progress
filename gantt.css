@@ -168,6 +168,25 @@ body[data-screen="home"] .only-project { display: none; }
   color: var(--muted);
 }
 .chip.is-on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip-set {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.chip-set .chip { border: 0; }
+.chip-edit {
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.chip-set.is-on { background: var(--accent); border-color: var(--accent); }
+.chip-set.is-on .chip { background: transparent; color: var(--accent-ink); }
+.chip-set.is-on .chip-edit { color: var(--accent-ink); border-left-color: color-mix(in srgb, var(--accent-ink) 35%, transparent); }
 .toolbar-actions { margin-left: auto; }
 .swatch {
   width: 8px;

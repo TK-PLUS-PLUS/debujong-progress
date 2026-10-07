@@ -354,7 +354,8 @@
 
     const genreButtons = [`<button type="button" class="chip${state.genre === "all" ? " is-on" : ""}" data-genre="all">全ジャンル</button>`];
     state.studio.genres.forEach((genre) => {
-      genreButtons.push(`<button type="button" class="chip${state.genre === genre.id ? " is-on" : ""}" data-genre="${esc(genre.id)}"><i class="swatch" style="background:${safeColor(genre.color)}"></i>${esc(genre.name)}</button>`);
+      const on = state.genre === genre.id ? " is-on" : "";
+      genreButtons.push(`<span class="chip-set${on}"><button type="button" class="chip" data-genre="${esc(genre.id)}"><i class="swatch" style="background:${safeColor(genre.color)}"></i>${esc(genre.name)}</button><button type="button" class="chip-edit" data-edit-genre-chip="${esc(genre.id)}" aria-label="${esc(genre.name)}を編集">編集</button></span>`);
     });
     $("genreChips").innerHTML = genreButtons.join("");
 
@@ -892,6 +893,11 @@
       render();
     };
     $("genreChips").onclick = (event) => {
+      const edit = event.target.closest("[data-edit-genre-chip]");
+      if (edit) {
+        openGenreDialog(genreById(edit.dataset.editGenreChip));
+        return;
+      }
       const button = event.target.closest("[data-genre]");
       if (!button) return;
       state.genre = button.dataset.genre;
