@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "project": "デブ雀",
+  "updated": "2026-10-07",
+  "members": [
+    {
+      "id": "system",
+      "name": "システム",
+      "role": "α-system",
+      "color": "#c2412d"
+    },
+    {
+      "id": "graphic",
+      "name": "グラフィック",
+      "role": "α-graphic",
+      "color": "#2f6f5e"
+    },
+    {
+      "id": "ai",
+      "name": "AI",
+      "role": "AI-Branch",
+      "color": "#3d5a80"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "cards-new",
+      "memberId": "system",
+      "title": "新アクションカード",
+      "start": "2026-09-27",
+      "end": "2026-09-29",
+      "progress": 100,
+      "status": "done",
+      "milestone": false,
+      "notes": "テイクアウト、バイキング、選べるランチ、本日のオススメなど。日付はコミット履歴からの目安です。",
+      "link": ""
+    },
+    {
+      "id": "card-ui",
+      "memberId": "system",
+      "title": "カードUIと演出",
+      "start": "2026-09-29",
+      "end": "2026-10-03",
+      "progress": 90,
+      "status": "review",
+      "milestone": false,
+      "notes": "ActionCardTarget、保温ボックス、モルフ演出、GameHUD との表示切替。",
+      "link": ""
+    },
+    {
+      "id": "steam",
+      "memberId": "system",
+      "title": "Steamマッチング",
+      "start": "2026-10-03",
+      "end": "2026-10-17",
+      "progress": 70,
+      "status": "doing",
+      "milestone": false,
+      "notes": "セッション、ロビー、招待、シームレス遷移。α-system 上で、master には未合流。終了日は見通しです。",
+      "link": ""
+    },
+    {
+      "id": "hud-effects",
+      "memberId": "system",
+      "title": "発動中効果のHUD",
+      "start": "2026-10-02",
+      "end": "2026-10-10",
+      "progress": 80,
+      "status": "doing",
+      "milestone": false,
+      "notes": "Panel_ActiveFieldEffects への動的追加と、エディタでのプレビュー。",
+      "link": ""
+    },
+    {
+      "id": "discard-motion",
+      "memberId": "graphic",
+      "title": "打牌モーションとモデル",
+      "start": "2026-09-25",
+      "end": "2026-09-27",
+      "progress": 100,
+      "status": "done",
+      "milestone": false,
+      "notes": "打牌モーションの修正とモデルの微修正。終了日は α-graphic のコミット日、開始日は目安です。",
+      "link": ""
+    }
+  ]
+}

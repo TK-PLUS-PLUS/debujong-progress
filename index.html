@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>デブ雀 開発進捗</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./gantt.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="seal" aria-hidden="true">雀</span>
+      <div>
+        <p class="eyebrow">DebuJong 2026</p>
+        <h1 id="projectTitle">デブ雀</h1>
+      </div>
+    </div>
+    <p class="updated" id="updatedLabel"></p>
+    <div class="top-actions">
+      <div class="seg" role="group" aria-label="表示">
+        <button type="button" id="viewChart" class="is-on" aria-pressed="true">チャート</button>
+        <button type="button" id="viewList" aria-pressed="false">一覧</button>
+      </div>
+      <div class="seg" role="group" aria-label="縮尺">
+        <button type="button" data-zoom="day">日</button>
+        <button type="button" data-zoom="week" class="is-on">週</button>
+        <button type="button" data-zoom="month">月</button>
+      </div>
+      <button type="button" class="btn" id="openHelp">使い方</button>
+      <button type="button" class="btn" id="openSettings">設定</button>
+      <button type="button" class="btn primary" id="saveGitHub">GitHubに保存</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">
+    <p>担当名と日付は初期データです。バーをドラッグすると期間が変わり、クリックで内容を編集できます。変更はこのブラウザに下書きとして残り、JSON のダウンロードか「GitHubに保存」で共有します。</p>
+    <button type="button" id="dismissBanner">閉じる</button>
+  </div>
+
+  <div class="status-line" id="statusLine" role="status"></div>
+
+  <section class="toolbar">
+    <label class="search">
+      <span class="sr">検索</span>
+      <input id="search" type="search" placeholder="タスクを検索" autocomplete="off">
+    </label>
+    <div class="chips" id="statusChips"></div>
+    <div class="chips" id="memberChips"></div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn" id="addMember">メンバーを追加</button>
+      <button type="button" class="btn primary" id="addTask">タスクを追加</button>
+    </div>
+  </section>
+
+  <main id="main"></main>
+
+  <dialog id="taskDialog">
+    <form id="taskForm" method="dialog">
+      <header class="dialog-head">
+        <h2 id="taskDialogTitle">タスク</h2>
+        <button type="button" class="icon-btn" id="closeTask" aria-label="閉じる">×</button>
+      </header>
+      <label>タスク名
+        <input id="fTitle" name="title" required maxlength="80">
+      </label>
+      <div class="grid-2">
+        <label>担当
+          <select id="fMember" name="memberId" required></select>
+        </label>
+        <label>状態
+          <select id="fStatus" name="status"></select>
+        </label>
+      </div>
+      <label>進捗 <span id="fProgressLabel">0%</span>
+        <input id="fProgress" name="progress" type="range" min="0" max="100" value="0">
+      </label>
+      <div class="grid-2">
+        <label>開始
+          <input id="fStart" name="start" type="date" required>
+        </label>
+        <label>終了
+          <input id="fEnd" name="end" type="date" required>
+        </label>
+      </div>
+      <label class="check">
+        <input id="fMilestone" name="milestone" type="checkbox">
+        マイルストーン（その日の一点）
+      </label>
+      <label>メモ
+        <textarea id="fNotes" name="notes" rows="3" maxlength="500"></textarea>
+      </label>
+      <label>リンク（任意）
+        <input id="fLink" name="link" type="url" placeholder="https://">
+      </label>
+      <footer class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteTask">削除</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelTask">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="memberDialog">
+    <form id="memberForm">
+      <header class="dialog-head">
+        <h2 id="memberDialogTitle">メンバー</h2>
+        <button type="button" class="icon-btn" id="closeMember" aria-label="閉じる">×</button>
+      </header>
+      <label>表示名
+        <input id="mName" required maxlength="40">
+      </label>
+      <label>担当・ブランチ
+        <input id="mRole" maxlength="40" placeholder="α-system">
+      </label>
+      <label>色
+        <input id="mColor" type="color" value="#c2412d">
+      </label>
+      <footer class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteMember">削除</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelMember">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm">
+      <header class="dialog-head">
+        <h2>設定</h2>
+        <button type="button" class="icon-btn" id="closeSettings" aria-label="閉じる">×</button>
+      </header>
+      <label>プロジェクト名
+        <input id="sProject" maxlength="40">
+      </label>
+      <fieldset>
+        <legend>GitHub へ直接保存</legend>
+        <p class="hint">Fine-grained personal access token で、このリポジトリの Contents を Read and write にしてください。トークンはリポジトリには書き込みません。</p>
+        <div class="grid-2">
+          <label>Owner
+            <input id="sOwner" required value="TK-PLUS-PLUS">
+          </label>
+          <label>Repository
+            <input id="sRepo" required value="debujong-progress">
+          </label>
+        </div>
+        <div class="grid-2">
+          <label>Branch
+            <input id="sBranch" required value="main">
+          </label>
+          <label>File path
+            <input id="sPath" required value="schedule.json">
+          </label>
+        </div>
+        <label>Token
+          <input id="sToken" type="password" autocomplete="off" placeholder="github_pat_...">
+        </label>
+        <label class="check">
+          <input id="sRemember" type="checkbox">
+          このブラウザにトークンを残す
+        </label>
+      </fieldset>
+      <p class="hint" id="settingsMessage"></p>
+      <footer class="dialog-actions">
+        <button type="button" class="btn" id="downloadJson">JSONをダウンロード</button>
+        <label class="btn file-btn">JSONを読み込む
+          <input id="importJson" type="file" accept="application/json,.json">
+        </label>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="testGitHub">接続を確認</button>
+        <button type="submit" class="btn primary">閉じる</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="helpDialog">
+    <article class="help">
+      <header class="dialog-head">
+        <h2>使い方</h2>
+        <button type="button" class="icon-btn" id="closeHelp" aria-label="閉じる">×</button>
+      </header>
+      <h3>チャートの操作</h3>
+      <ul>
+        <li>バーを左右にドラッグすると期間がずれます。端をドラッグすると開始日・終了日だけ変わります。</li>
+        <li>バーをクリックすると編集できます。メンバー名をクリックすると担当名と色を変えられます。</li>
+        <li>編集内容はまずこのブラウザの下書きに残ります。共有するには <code>schedule.json</code> をコミットして push するか、「GitHubに保存」を使います。</li>
+      </ul>
+      <h3>見られる人</h3>
+      <p class="hint">このリポジトリは private です。Collaborators に追加した開発メンバーだけが進捗を見られます。GitHub Pages を有効にすると、リポジトリが private でもページの URL はインターネットから開けるようになります。メンバー限定のままにする場合は Pages をオンにしないでください。</p>
+      <h3>手元で開く</h3>
+      <p>リポジトリのフォルダで <code>py -3 -m http.server 8765</code> を実行し、<code>http://127.0.0.1:8765/</code> を開きます。</p>
+      <footer class="dialog-actions">
+        <button type="button" class="btn" id="reloadFile">下書きを捨ててファイルに戻す</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="closeHelp2">閉じる</button>
+      </footer>
+    </article>
+  </dialog>
+
+  <script src="./gantt.js" defer></script>
+</body>
+</html>
