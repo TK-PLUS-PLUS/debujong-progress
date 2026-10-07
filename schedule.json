@@ -2,6 +2,23 @@
   "version": 1,
   "project": "デブ雀",
   "updated": "2026-10-08",
+  "milestones": [
+    {
+      "id": "alpha-done",
+      "title": "α版完成",
+      "date": "2026-10-31"
+    },
+    {
+      "id": "beta-store",
+      "title": "β版完成 / ストア公開",
+      "date": "2026-12-31"
+    },
+    {
+      "id": "master-release",
+      "title": "マスターアップ完成 / リリース",
+      "date": "2027-01-31"
+    }
+  ],
   "members": [
     {
       "id": "tk",

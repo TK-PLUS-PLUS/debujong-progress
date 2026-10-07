@@ -376,6 +376,68 @@ h1 {
   overflow: visible;
 }
 
+.milestone-row .lane { background: #f3e6d4; }
+.milestone-row .lane span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.milestone-row .track { overflow: visible; }
+
+.milestone-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed #8a5a32;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ms-mark {
+  position: absolute;
+  top: 8px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  padding: 2px 0 0 16px;
+  cursor: grab;
+  z-index: 3;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a5a32;
+}
+
+.ms-mark::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 11px;
+  height: 11px;
+  background: #8a5a32;
+  transform: rotate(45deg);
+}
+
+.ms-mark:active { cursor: grabbing; }
+
+.ms-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.ms-list button {
+  border: 1px dashed #8a5a32;
+  background: #f8f1e6;
+  color: #8a5a32;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+
 .bar.is-milestone .bar-label {
   position: absolute;
   left: 18px;

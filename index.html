@@ -51,6 +51,7 @@
     <div class="chips" id="memberChips"></div>
     <div class="toolbar-actions">
       <button type="button" class="btn" id="addMember">メンバーを追加</button>
+      <button type="button" class="btn" id="addMilestone">マイルストーン</button>
       <button type="button" class="btn primary" id="addTask">タスクを追加</button>
     </div>
   </section>
@@ -87,7 +88,7 @@
       </div>
       <label class="check">
         <input id="fMilestone" name="milestone" type="checkbox">
-        マイルストーン（その日の一点）
+        この日だけの一点
       </label>
       <label>メモ
         <textarea id="fNotes" name="notes" rows="3" maxlength="500"></textarea>
@@ -99,6 +100,28 @@
         <button type="button" class="btn danger" id="deleteTask">削除</button>
         <span class="spacer"></span>
         <button type="button" class="btn" id="cancelTask">キャンセル</button>
+        <button type="submit" class="btn primary">保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="milestoneDialog">
+    <form id="milestoneForm">
+      <header class="dialog-head">
+        <h2 id="milestoneDialogTitle">マイルストーン</h2>
+        <button type="button" class="icon-btn" id="closeMilestone" aria-label="閉じる">×</button>
+      </header>
+      <p class="hint">プロジェクト全体の節目です。担当者には紐づかず、チャートを縦に貫きます。</p>
+      <label>名前
+        <input id="msTitle" required maxlength="80">
+      </label>
+      <label>日付
+        <input id="msDate" type="date" required>
+      </label>
+      <footer class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteMilestone">削除</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelMilestone">キャンセル</button>
         <button type="submit" class="btn primary">保存</button>
       </footer>
     </form>
@@ -187,6 +210,7 @@
       <ul>
         <li>バーを左右にドラッグすると期間がずれます。端をドラッグすると開始日・終了日だけ変わります。</li>
         <li>バーをクリックすると編集できます。メンバー名をクリックすると担当名と色を変えられます。</li>
+        <li>「マイルストーン」はプロジェクト全体の節目です。菱形をドラッグすると日付が変わり、クリックで名前を編集できます。</li>
         <li>編集内容はまずこのブラウザの下書きに残ります。共有するには <code>schedule.json</code> をコミットして push するか、「GitHubに保存」を使います。</li>
       </ul>
       <h3>公開ページ</h3>

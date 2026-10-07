@@ -98,6 +98,7 @@
       project: data.project,
       updated: data.updated,
       members: data.members,
+      milestones: data.milestones || [],
       tasks: data.tasks,
     }, null, 2)}\n`;
   }
@@ -224,6 +225,11 @@
       if (start < min) min = start;
       if (end > max) max = end;
     });
+    (state.data?.milestones || []).forEach((item) => {
+      const date = parseISODate(item.date);
+      if (date < min) min = date;
+      if (date > max) max = date;
+    });
     return {
       start: startOfWeek(addDays(min, -7)),
       end: addDays(startOfWeek(addDays(max, 14)), 7),
@@ -238,7 +244,8 @@
       const count = state.data.tasks.filter((task) => task.status === key).length;
       return `${STATUS[key]} ${count}`;
     });
-    $("updatedLabel").textContent = `${state.dirty ? "下書き " : ""}更新 ${state.data.updated || "—"} ・ ${counts.join(" / ")}`;
+    const milestoneCount = (state.data.milestones || []).length;
+    $("updatedLabel").textContent = `${state.dirty ? "下書き " : ""}更新 ${state.data.updated || "—"} ・ ${counts.join(" / ")} ・ 節目 ${milestoneCount}`;
 
     $("statusChips").innerHTML = [`all`, ...Object.keys(STATUS)].map((key) => {
       const label = key === "all" ? "すべて" : STATUS[key];
@@ -260,9 +267,19 @@
     $("viewList").setAttribute("aria-pressed", String(state.view === "list"));
   }
 
+  function milestoneHtml(extraClass) {
+    const items = (state.data.milestones || [])
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!items.length) return "";
+    return `<div class="ms-list ${extraClass || ""}">${items.map((item) => (
+      `<button type="button" data-edit-milestone="${esc(item.id)}">${esc(item.date.replaceAll("-", "/"))} ${esc(item.title)}</button>`
+    )).join("")}</div>`;
+  }
+
   function renderList(tasks) {
     if (!tasks.length) {
-      $("main").innerHTML = `<div class="empty">該当するタスクがありません。</div>`;
+      $("main").innerHTML = `${milestoneHtml()}<div class="empty">該当するタスクがありません。</div>`;
       return;
     }
     const rows = tasks
@@ -279,7 +296,7 @@
           <td>${esc(STATUS[task.status] || task.status)}</td>
         </tr>`;
       }).join("");
-    $("main").innerHTML = `<table class="list"><thead><tr><th>担当</th><th>タスク</th><th>開始</th><th>終了</th><th>進捗</th><th>状態</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $("main").innerHTML = `${milestoneHtml()}<table class="list"><thead><tr><th>担当</th><th>タスク</th><th>開始</th><th>終了</th><th>進捗</th><th>状態</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   function renderChart(tasks) {
@@ -356,13 +373,32 @@
       </div>`;
     }).join("");
 
+    const milestones = (state.data.milestones || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+    const milestoneMarks = milestones.map((item) => {
+      const index = daysBetween(range.start, parseISODate(item.date));
+      if (index < 0 || index > totalDays) return "";
+      const left = index * dayWidth;
+      return `<button type="button" class="ms-mark" data-milestone="${esc(item.id)}" style="left:${left}px" title="${esc(item.title)} ${esc(item.date)}">${esc(item.title)}</button>`;
+    }).join("");
+    const milestoneLines = milestones.map((item) => {
+      const index = daysBetween(range.start, parseISODate(item.date));
+      if (index < 0 || index > totalDays) return "";
+      return `<div class="milestone-line" data-milestone-line="${esc(item.id)}" style="left:calc(var(--lane-w) + ${index * dayWidth}px)"></div>`;
+    }).join("");
+    const milestoneRow = `<div class="row milestone-row">
+      <div class="lane"><strong>節目</strong><span>${milestones.length}件</span></div>
+      <div class="track" style="width:${timelineWidth}px;height:40px">${milestoneMarks}</div>
+    </div>`;
+
     $("main").innerHTML = `<div class="gantt-scroll" id="ganttScroll"><div class="gantt-canvas" style="width:${timelineWidth + 200}px">
       <div class="gantt-header">
         <div class="lane">メンバー</div>
         <div class="time-head" style="width:${timelineWidth}px">${monthHtml}${ticks.join("")}${todayMark}</div>
       </div>
+      ${milestoneRow}
       ${rows || `<div class="empty">メンバーがいません。</div>`}
       ${todayLine}
+      ${milestoneLines}
     </div></div>`;
 
     const scroller = $("ganttScroll");
@@ -531,6 +567,7 @@
     if (!data || !Array.isArray(data.members) || !Array.isArray(data.tasks)) {
       throw new Error("members と tasks が必要です。");
     }
+    if (!Array.isArray(data.milestones)) data.milestones = [];
     state.data = data;
     state.fileText = fileText || serialize(data);
     state.dirty = false;
@@ -549,6 +586,7 @@
     if (draft?.data && JSON.stringify(draft.data) !== JSON.stringify(data)) {
       const useDraft = window.confirm("このブラウザに未共有の下書きがあります。下書きを開きますか？");
       if (useDraft) {
+        if (!Array.isArray(draft.data.milestones)) draft.data.milestones = [];
         state.data = draft.data;
         state.dirty = true;
         render();
@@ -583,6 +621,30 @@
       openTaskDialog(null);
     };
     $("addMember").onclick = () => openMemberDialog(null);
+    $("addMilestone").onclick = () => openMilestoneDialog(null);
+    $("closeMilestone").onclick = () => $("milestoneDialog").close();
+    $("cancelMilestone").onclick = () => $("milestoneDialog").close();
+    $("milestoneForm").onsubmit = (event) => {
+      event.preventDefault();
+      const item = {
+        id: state.editingMilestoneId || uid("ms"),
+        title: $("msTitle").value.trim(),
+        date: $("msDate").value,
+      };
+      if (!item.title || !item.date) return;
+      const index = state.data.milestones.findIndex((entry) => entry.id === item.id);
+      if (index >= 0) state.data.milestones[index] = item;
+      else state.data.milestones.push(item);
+      $("milestoneDialog").close();
+      touch();
+    };
+    $("deleteMilestone").onclick = () => {
+      const item = state.data.milestones.find((entry) => entry.id === state.editingMilestoneId);
+      if (!item || !window.confirm(`「${item.title}」を削除しますか？`)) return;
+      state.data.milestones = state.data.milestones.filter((entry) => entry.id !== item.id);
+      $("milestoneDialog").close();
+      touch();
+    };
     $("dismissBanner").onclick = () => {
       localStorage.setItem(BANNER_KEY, "1");
       $("banner").classList.add("is-hidden");
@@ -696,7 +758,14 @@
         return;
       }
       const memberButton = event.target.closest("[data-edit-member]");
-      if (memberButton) openMemberDialog(memberById(memberButton.dataset.editMember));
+      if (memberButton) {
+        openMemberDialog(memberById(memberButton.dataset.editMember));
+        return;
+      }
+      const milestoneButton = event.target.closest("[data-edit-milestone]");
+      if (milestoneButton) {
+        openMilestoneDialog((state.data.milestones || []).find((item) => item.id === milestoneButton.dataset.editMilestone));
+      }
     });
     $("main").addEventListener("input", (event) => {
       const input = event.target.closest("[data-progress]");
@@ -717,8 +786,48 @@
       renderChrome();
     });
     $("main").addEventListener("pointerdown", (event) => {
-      if (state.view === "chart" && event.target.closest(".bar")) bindChartDragOnce(event);
+      if (state.view !== "chart") return;
+      if (event.target.closest(".ms-mark")) bindMilestoneDrag(event);
+      else if (event.target.closest(".bar")) bindChartDragOnce(event);
     });
+  }
+
+  function openMilestoneDialog(item) {
+    state.editingMilestoneId = item?.id || null;
+    $("milestoneDialogTitle").textContent = item ? "マイルストーンを編集" : "マイルストーンを追加";
+    $("deleteMilestone").hidden = !item;
+    $("msTitle").value = item?.title || "";
+    $("msDate").value = item?.date || toISODate(new Date());
+    $("milestoneDialog").showModal();
+    $("msTitle").focus();
+  }
+
+  function bindMilestoneDrag(event) {
+    const mark = event.target.closest(".ms-mark");
+    const item = (state.data.milestones || []).find((entry) => entry.id === mark.dataset.milestone);
+    if (!item || event.button !== 0) return;
+    const originX = event.clientX;
+    const snapshot = item.date;
+    const rangeStart = rangeFor(state.data.tasks).start;
+    const line = document.querySelector(`[data-milestone-line="${CSS.escape(item.id)}"]`);
+    let moved = false;
+    const move = (ev) => {
+      const delta = Math.round((ev.clientX - originX) / ZOOM_WIDTH[state.zoom]);
+      if (Math.abs(ev.clientX - originX) > 4) moved = true;
+      item.date = toISODate(addDays(parseISODate(snapshot), delta));
+      const left = daysBetween(rangeStart, parseISODate(item.date)) * ZOOM_WIDTH[state.zoom];
+      mark.style.left = `${left}px`;
+      if (line) line.style.left = `calc(var(--lane-w) + ${left}px)`;
+      mark.title = `${item.title} ${item.date}`;
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (item.date !== snapshot) touch();
+      else if (!moved) openMilestoneDialog(item);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   }
 
   function bindChartDragOnce(event) {
