@@ -568,9 +568,9 @@
       const note = mine.length ? `${mine.length}件` : "タスクなし";
       const role = lane.role ? `${lane.role} ・ ` : "";
       const editAttr = lane.kind === "genre" ? `data-edit-genre="${esc(lane.id)}"` : `data-edit-member="${esc(lane.id)}"`;
-      return `<div class="row">
+      return `<div class="row" data-lane-id="${esc(lane.id)}" data-lane-kind="${esc(lane.kind)}">
         <div class="lane"><button type="button" class="lane-btn" ${editAttr}><strong><i class="swatch" style="background:${safeColor(lane.color)}"></i>${esc(lane.name)}</strong><span>${esc(role)}${note}</span></button></div>
-        <div class="track" style="width:${timelineWidth}px;height:${height}px">${weekendHtml}${bars}</div>
+        <div class="track" data-lane-id="${esc(lane.id)}" data-lane-kind="${esc(lane.kind)}" data-range-start="${toISODate(range.start)}" style="width:${timelineWidth}px;height:${height}px">${weekendHtml}${bars}</div>
       </div>`;
     }).join("");
 
@@ -621,7 +621,7 @@
     paintAuth();
   }
 
-  function openTaskDialog(task) {
+  function openTaskDialog(task, preset) {
     if (denyEdit()) return;
     const current = project();
     if (!current.members.length) {
@@ -639,18 +639,18 @@
     $("fMember").innerHTML = current.members.map((member) => (
       `<option value="${esc(member.id)}">${esc(member.name)}</option>`
     )).join("");
-    $("fMember").value = task?.memberId || (state.member !== "all" ? state.member : current.members[0].id);
+    $("fMember").value = task?.memberId || preset?.memberId || (state.member !== "all" ? state.member : current.members[0].id);
     $("fGenre").innerHTML = state.studio.genres.map((genre) => (
       `<option value="${esc(genre.id)}">${esc(genre.name)}</option>`
     )).join("");
-    $("fGenre").value = task?.genreId || (state.genre !== "all" ? state.genre : state.studio.genres[0].id);
+    $("fGenre").value = task?.genreId || preset?.genreId || (state.genre !== "all" ? state.genre : state.studio.genres[0].id);
     $("fStatus").innerHTML = Object.entries(STATUS).map(([key, label]) => `<option value="${key}">${label}</option>`).join("");
     $("fStatus").value = task?.status || "todo";
     $("fProgress").value = String(task?.progress ?? 0);
     $("fProgressLabel").textContent = `${$("fProgress").value}%`;
     const today = toISODate(new Date());
-    $("fStart").value = task?.start || today;
-    $("fEnd").value = task?.end || toISODate(addDays(new Date(), 6));
+    $("fStart").value = task?.start || preset?.start || today;
+    $("fEnd").value = task?.end || preset?.end || toISODate(addDays(new Date(), 6));
     $("fMilestone").checked = Boolean(task?.milestone);
     $("fEnd").disabled = $("fMilestone").checked;
     $("fNotes").value = task?.notes || "";
@@ -859,6 +859,41 @@
     window.addEventListener("pointerup", up);
   }
 
+  let ignoreTrackClick = false;
+
+  function laneTrackAt(x, y, ignore) {
+    const hits = document.elementsFromPoint(x, y);
+    for (const hit of hits) {
+      if (ignore && (hit === ignore || ignore.contains(hit))) continue;
+      const row = hit.closest(".row[data-lane-kind]");
+      if (row) return row.querySelector(".track");
+    }
+    return null;
+  }
+
+  function laneField(kind) {
+    return kind === "genre" ? "genreId" : "memberId";
+  }
+
+  function markDropRow(track) {
+    document.querySelectorAll(".row.is-drop").forEach((row) => row.classList.remove("is-drop"));
+    track?.closest(".row")?.classList.add("is-drop");
+  }
+
+  function createTaskAt(track, event) {
+    if (!track?.dataset.rangeStart || !track.dataset.laneId) return;
+    const x = event.clientX - track.getBoundingClientRect().left;
+    const index = Math.max(0, Math.floor(x / ZOOM_WIDTH[state.zoom]));
+    const startDate = addDays(parseISODate(track.dataset.rangeStart), index);
+    const preset = {
+      start: toISODate(startDate),
+      end: toISODate(addDays(startDate, 6)),
+    };
+    if (track.dataset.laneKind === "member") preset.memberId = track.dataset.laneId;
+    if (track.dataset.laneKind === "genre") preset.genreId = track.dataset.laneId;
+    openTaskDialog(null, preset);
+  }
+
   function bindChartDragOnce(event) {
     if (denyEdit()) return;
     const bar = event.target.closest(".bar");
@@ -867,13 +902,15 @@
     const mode = event.target.dataset.mode || "move";
     if (task.milestone && mode !== "move") return;
     if (event.button !== 0) return;
+    ignoreTrackClick = true;
     const originX = event.clientX;
-    const snapshot = { start: task.start, end: task.end };
+    const originY = event.clientY;
+    const snapshot = { start: task.start, end: task.end, memberId: task.memberId, genreId: task.genreId };
     const rangeStart = rangeFor(project().tasks).start;
     let moved = false;
     const move = (ev) => {
       const delta = Math.round((ev.clientX - originX) / ZOOM_WIDTH[state.zoom]);
-      if (Math.abs(ev.clientX - originX) > 4) moved = true;
+      if (Math.abs(ev.clientX - originX) > 4 || Math.abs(ev.clientY - originY) > 4) moved = true;
       task.start = snapshot.start;
       task.end = snapshot.end;
       shiftTask(task, mode, delta);
@@ -884,13 +921,37 @@
       );
       bar.style.left = `${left}px`;
       if (!task.milestone) bar.style.width = `${width}px`;
+      if (mode === "move") {
+        bar.style.pointerEvents = "none";
+        bar.style.zIndex = "5";
+        bar.style.transform = `translateY(${ev.clientY - originY}px)`;
+        const track = laneTrackAt(ev.clientX, ev.clientY, bar);
+        const field = track ? laneField(track.dataset.laneKind) : "";
+        markDropRow(field && track.dataset.laneId !== snapshot[field] ? track : null);
+      }
     };
-    const up = () => {
+    const up = (ev) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      const changed = task.start !== snapshot.start || task.end !== snapshot.end;
+      markDropRow(null);
+      let reassigned = false;
+      if (mode === "move") {
+        const track = laneTrackAt(ev.clientX, ev.clientY, bar);
+        const field = track ? laneField(track.dataset.laneKind) : "";
+        if (field && track.dataset.laneId && track.dataset.laneId !== snapshot[field]) {
+          task[field] = track.dataset.laneId;
+          reassigned = true;
+        }
+      }
+      const changed = reassigned || task.start !== snapshot.start || task.end !== snapshot.end;
       if (changed) touch();
-      else if (!moved) openTaskDialog(task);
+      else {
+        bar.style.pointerEvents = "";
+        bar.style.zIndex = "";
+        bar.style.transform = "";
+        if (!moved) openTaskDialog(task);
+      }
+      setTimeout(() => { ignoreTrackClick = false; }, 0);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -1284,6 +1345,12 @@
     };
 
     $("main").addEventListener("click", (event) => {
+      const track = event.target.closest(".track");
+      if (track && state.view === "chart" && !event.target.closest(".bar, .ms-mark, .handle")) {
+        if (ignoreTrackClick) return;
+        createTaskAt(track, event);
+        return;
+      }
       if (event.target.closest("#createProject")) {
         openProjectDialog(null);
         return;

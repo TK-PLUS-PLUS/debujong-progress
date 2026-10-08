@@ -336,6 +336,8 @@ body[data-screen="home"] .only-project { display: none; }
 }
 .tick-label { top: 26px; height: 30px; font-variant-numeric: tabular-nums; }
 .row { border-bottom: 1px solid var(--line); }
+.row.is-drop { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.track { cursor: cell; }
 .track { position: relative; height: 100%; }
 .weekend, .today-line { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .weekend { background: color-mix(in srgb, var(--ink) 4%, transparent); }
