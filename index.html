@@ -42,12 +42,15 @@
       <button type="button" class="btn" id="toggleTheme">ダーク</button>
       <button type="button" class="btn" id="openHelp">使い方</button>
       <button type="button" class="btn" id="openSettings">設定</button>
-      <button type="button" class="btn primary" id="saveGitHub">GitHubに保存</button>
+      <span id="sessionUser" hidden></span>
+      <span id="syncLabel" class="sync-label"></span>
+      <button type="button" class="btn" id="logoutGitHub" hidden>ログアウト</button>
+      <button type="button" class="btn primary" id="loginGitHub" hidden>GitHubでログイン</button>
     </div>
   </header>
 
   <div class="banner" id="banner">
-    <p>バーをドラッグすると期間が変わり、クリックで内容を編集できます。メンバーとジャンルのどちらで行を分けるか切り替えられます。変更はこのブラウザに下書きとして残り、JSON のダウンロードか「GitHubに保存」で共有します。</p>
+    <p>GitHub でログインすると、編集は自動で保存され、ほかのメンバーの画面にも届きます。未ログインでは閲覧だけできます。</p>
     <button type="button" class="btn" id="dismissBanner">閉じる</button>
   </div>
 
@@ -73,13 +76,13 @@
       </div>
     </div>
     <div class="toolbar-actions">
-      <button type="button" class="btn primary" id="addTask">タスクを追加</button>
+      <button type="button" class="btn primary needs-edit" id="addTask">タスクを追加</button>
       <div class="manage">
         <span class="filter-label">管理</span>
-        <button type="button" class="btn quiet" id="openMembers">メンバー</button>
-        <button type="button" class="btn quiet" id="openGenres">ジャンル</button>
-        <button type="button" class="btn quiet" id="addMilestone">マイルストーン</button>
-        <button type="button" class="btn quiet" id="editProject">プロジェクト名</button>
+        <button type="button" class="btn quiet needs-edit" id="openMembers">メンバー</button>
+        <button type="button" class="btn quiet needs-edit" id="openGenres">ジャンル</button>
+        <button type="button" class="btn quiet needs-edit" id="addMilestone">マイルストーン</button>
+        <button type="button" class="btn quiet needs-edit" id="editProject">プロジェクト名</button>
       </div>
     </div>
   </section>
@@ -267,33 +270,7 @@
       <label>スタジオ名
         <input id="sStudio" maxlength="40">
       </label>
-      <fieldset>
-        <legend>GitHub へ直接保存</legend>
-        <p class="hint">Fine-grained personal access token で、このリポジトリの Contents を Read and write にしてください。トークンはリポジトリには書き込みません。</p>
-        <div class="grid-2">
-          <label>Owner
-            <input id="sOwner" required value="TK-PLUS-PLUS">
-          </label>
-          <label>Repository
-            <input id="sRepo" required value="necomos-studio">
-          </label>
-        </div>
-        <div class="grid-2">
-          <label>Branch
-            <input id="sBranch" required value="main">
-          </label>
-          <label>File path
-            <input id="sPath" required value="schedule.json">
-          </label>
-        </div>
-        <label>Token
-          <input id="sToken" type="password" autocomplete="off" placeholder="github_pat_...">
-        </label>
-        <label class="check">
-          <input id="sRemember" type="checkbox">
-          このブラウザにトークンを残す
-        </label>
-      </fieldset>
+      <p class="hint">ログインしているメンバーの編集は、止めてから約1秒で自動保存されます。JSON は控えとしてダウンロードできます。</p>
       <p class="hint" id="settingsMessage"></p>
       <footer class="dialog-actions">
         <button type="button" class="btn" id="downloadJson">JSONをダウンロード</button>
@@ -301,7 +278,6 @@
           <input id="importJson" type="file" accept="application/json,.json">
         </label>
         <span class="spacer"></span>
-        <button type="button" class="btn" id="testGitHub">接続を確認</button>
         <button type="submit" class="btn primary">閉じる</button>
       </footer>
     </form>
@@ -321,22 +297,23 @@
         <li>登録済みのメンバーとジャンルは、右の「管理」からまとめて編集・追加します。マイルストーンとプロジェクト名もそこにあります。</li>
         <li>バーをクリックすると編集できます。行の名前をクリックするとメンバーかジャンルを編集できます。</li>
         <li>マイルストーンはプロジェクト全体の節目です。菱形をドラッグすると日付が変わり、クリックで名前を編集できます。</li>
-        <li>編集内容はまずこのブラウザの下書きに残ります。共有するには <code>schedule.json</code> をコミットして push するか、「GitHubに保存」を使います。</li>
+        <li>GitHub でログインすると、編集は自動で保存されます。未ログインでは閲覧だけできます。</li>
       </ul>
       <h3>プロジェクト</h3>
       <p class="hint">トップの一覧からプロジェクトを開きます。新しい作品は「新しいプロジェクト」から追加します。アドレスは <code>#/プロジェクトID</code> です。</p>
       <h3>公開ページ</h3>
-      <p class="hint">進捗は <a href="https://tk-plus-plus.github.io/necomos-studio/">https://tk-plus-plus.github.io/necomos-studio/</a> で公開しています。編集して push すると、しばらくしてこのページにも反映されます。</p>
+      <p class="hint">進捗は <a href="https://tk-plus-plus.github.io/necomos-studio/">https://tk-plus-plus.github.io/necomos-studio/</a> で公開しています。ログインした編集は、ほかの人の画面にも届きます。</p>
       <h3>手元で開く</h3>
       <p>リポジトリのフォルダで <code>py -3 -m http.server 8765</code> を実行し、<code>http://127.0.0.1:8765/</code> を開きます。</p>
       <footer class="dialog-actions">
-        <button type="button" class="btn" id="reloadFile">下書きを捨ててファイルに戻す</button>
+        <button type="button" class="btn" id="reloadFile">最新の内容に戻す</button>
         <span class="spacer"></span>
         <button type="button" class="btn primary" id="closeHelp2">閉じる</button>
       </footer>
     </article>
   </dialog>
 
+  <script src="./config.js"></script>
   <script src="./gantt.js" defer></script>
 </body>
 </html>

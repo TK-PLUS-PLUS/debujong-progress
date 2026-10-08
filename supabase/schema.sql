@@ -1,0 +1,91 @@
+-- NECOMOS STUDIO の進捗を1行で共有する。
+-- Supabase の SQL Editor で実行する。
+-- 書き込みできる GitHub ログインは editors に入れる。
+
+create table if not exists public.editors (
+  github_login text primary key
+);
+
+create table if not exists public.studio (
+  id text primary key,
+  data jsonb not null,
+  client_id text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.editors (github_login) values
+  ('TK-PLUS-PLUS'),
+  ('homare1998'),
+  ('Futa-F'),
+  ('risairu00debujong')
+on conflict (github_login) do nothing;
+
+insert into public.studio (id, data)
+values ('necomos', $necomos${"version":2,"studio":"NECOMOS STUDIO","updated":"2026-10-08","genres":[{"id":"progress","name":"進行管理","color":"#5c6b7a"},{"id":"admin","name":"契約・手続き","color":"#8a6a3b"},{"id":"gamedesign","name":"ゲームデザイン","color":"#2f6f5e"},{"id":"level","name":"レベルデザイン","color":"#3d7a6a"},{"id":"ux","name":"UXデザイン","color":"#3d5a80"},{"id":"graphic","name":"グラフィック","color":"#c2412d"},{"id":"model3d","name":"3D","color":"#6b4c7a"},{"id":"engineering","name":"実装","color":"#1f4e79"},{"id":"sound","name":"サウンド","color":"#c4892a"},{"id":"marketing","name":"マーケティング","color":"#b5451b"},{"id":"qa","name":"QA","color":"#6e6256"}],"projects":[{"id":"debujong","name":"デブ雀","members":[{"id":"tk","name":"籔内","role":"代表","color":"#c2412d"},{"id":"risairu","name":"りさいる","role":"ゲームデザイン","color":"#2f6f5e"},{"id":"morizo","name":"モリゾー","role":"作曲・3D","color":"#3d5a80"}],"milestones":[{"id":"alpha-done","title":"α版完成","date":"2026-10-31"},{"id":"beta-store","title":"β版完成 / ストア Coming Soon 公開","date":"2026-12-31"},{"id":"feature-freeze","title":"機能凍結","date":"2027-01-31"},{"id":"master-release","title":"マスターアップ完成 / リリース","date":"2027-02-28"}],"tasks":[{"id":"alpha-schedule","memberId":"tk","genreId":"progress","title":"α開発スケジュール","start":"2026-10-08","end":"2026-10-09","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"bg-objects","memberId":"tk","genreId":"model3d","title":"背景オブジェクト作成","start":"2026-10-08","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"ui-impl","memberId":"tk","genreId":"engineering","title":"UIデザイン・実装","start":"2026-10-08","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"steam-impl","memberId":"tk","genreId":"engineering","title":"steam関連機能の実装","start":"2026-10-08","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"招待と対戦の仕上げ。本番 App ID は審査通過後の別タスク。","link":""},{"id":"ui-components","memberId":"risairu","genreId":"ux","title":"UIコンポーネントデザイン","start":"2026-10-08","end":"2026-10-08","progress":100,"status":"done","milestone":false,"notes":"","link":""},{"id":"wireframe","memberId":"risairu","genreId":"ux","title":"新規カード・タイトル・ロビーのワイヤーフレーム","start":"2026-10-08","end":"2026-10-12","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"card-design","memberId":"risairu","genreId":"graphic","title":"カードデザイン調整","start":"2026-10-08","end":"2026-10-12","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"tile-design","memberId":"risairu","genreId":"graphic","title":"牌のデザイン案 提出","start":"2026-10-08","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"bgm-theme","memberId":"morizo","genreId":"sound","title":"BGMテーマ確認","start":"2026-10-08","end":"2026-10-12","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"table-model","memberId":"morizo","genreId":"model3d","title":"雀卓モデリング","start":"2026-10-08","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"revenue-draft","memberId":"tk","genreId":"admin","title":"レベニューシェア契約の起案と締結","start":"2026-10-13","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"相手はりさいるとモリゾー。","link":""},{"id":"revenue-sign-risairu","memberId":"risairu","genreId":"admin","title":"レベニューシェア契約の確認と署名","start":"2026-10-20","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"revenue-sign-morizo","memberId":"morizo","genreId":"admin","title":"レベニューシェア契約の確認と署名","start":"2026-10-20","end":"2026-10-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"sfx-list","memberId":"morizo","genreId":"sound","title":"効果音の不足リスト","start":"2026-10-13","end":"2026-10-24","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"balance-list","memberId":"risairu","genreId":"gamedesign","title":"対局バランスの確認項目出し","start":"2026-10-13","end":"2026-10-24","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"steam-appid","memberId":"tk","genreId":"engineering","title":"本番 App ID への差し替えと試験アップロード","start":"2026-10-08","end":"2026-11-14","progress":0,"status":"blocked","milestone":false,"notes":"Steamworks は審査中。通過した翌日から2週間で終える。終了日は仮。","link":""},{"id":"settings-ui","memberId":"tk","genreId":"engineering","title":"音量と画面の設定","start":"2026-11-16","end":"2026-11-30","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"store-copy","memberId":"risairu","genreId":"marketing","title":"Steamストアページ原稿","start":"2026-11-02","end":"2026-11-15","progress":0,"status":"todo","milestone":false,"notes":"短文、長文、タグ、動作環境。","link":""},{"id":"screenshots","memberId":"risairu","genreId":"graphic","title":"スクリーンショットの撮影リストと仮画像","start":"2026-11-16","end":"2026-11-30","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"bgm-full","memberId":"morizo","genreId":"sound","title":"BGM本実装","start":"2026-11-02","end":"2026-12-14","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"achievements","memberId":"tk","genreId":"engineering","title":"実績","start":"2026-12-01","end":"2026-12-14","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"iarc","memberId":"tk","genreId":"admin","title":"年齢レーティングとプライバシーポリシー","start":"2026-12-01","end":"2026-12-14","progress":0,"status":"todo","milestone":false,"notes":"IARC。Steamworks の口座手続きは完了し、審査中。","link":""},{"id":"capsule","memberId":"risairu","genreId":"graphic","title":"カプセル画像","start":"2026-12-01","end":"2026-12-20","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"capsule-upload","memberId":"tk","genreId":"admin","title":"カプセル画像のアップロード","start":"2026-12-15","end":"2026-12-24","progress":0,"status":"todo","milestone":false,"notes":"窓口。","link":""},{"id":"coming-soon","memberId":"tk","genreId":"admin","title":"Coming Soon 公開","start":"2026-12-15","end":"2026-12-31","progress":0,"status":"todo","milestone":false,"notes":"価格とリリース日は仮置き。","link":""},{"id":"sns-account","memberId":"tk","genreId":"admin","title":"SNSアカウント開設","start":"2026-12-01","end":"2026-12-07","progress":0,"status":"todo","milestone":false,"notes":"対外窓口。投稿の主担当はりさいる。","link":""},{"id":"sns-posts","memberId":"risairu","genreId":"marketing","title":"SNSの投稿計画と公開までの投稿","start":"2026-12-08","end":"2026-12-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"ai-balance","memberId":"risairu","genreId":"level","title":"AIの強さと対局テンポの調整案","start":"2026-12-01","end":"2026-12-20","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"sfx-full","memberId":"morizo","genreId":"sound","title":"効果音本実装","start":"2026-12-15","end":"2027-01-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"model-integrate","memberId":"tk","genreId":"model3d","title":"牌・カード・雀卓のモデルをビルドへ組み込む","start":"2027-01-05","end":"2027-01-25","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"ai-impl","memberId":"tk","genreId":"engineering","title":"AI調整の実装","start":"2027-01-05","end":"2027-01-18","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"rules-ux","memberId":"risairu","genreId":"ux","title":"ルール説明の構成","start":"2027-01-05","end":"2027-01-18","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"rules-impl","memberId":"tk","genreId":"engineering","title":"ルール説明の実装","start":"2027-01-19","end":"2027-01-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"trailer","memberId":"risairu","genreId":"graphic","title":"トレイラー","start":"2027-01-12","end":"2027-01-31","progress":0,"status":"todo","milestone":false,"notes":"","link":""},{"id":"press-draft","memberId":"risairu","genreId":"marketing","title":"プレスリリース原稿と配信先","start":"2027-01-19","end":"2027-01-31","progress":0,"status":"todo","milestone":false,"notes":"ゲーム情報サイト向け。解禁日を含む。送付は2月、窓口は籔内。","link":""},{"id":"playtest","memberId":"tk","genreId":"qa","title":"プレイテストと既知不具合の修正","start":"2027-02-01","end":"2027-02-21","progress":0,"status":"todo","milestone":false,"notes":"AI混在、切断、起動、マルチの最終確認。","link":""},{"id":"store-final","memberId":"tk","genreId":"admin","title":"ストアページの最終反映","start":"2027-02-01","end":"2027-02-14","progress":0,"status":"todo","milestone":false,"notes":"価格、リリース日、レビュー用ビルド。","link":""},{"id":"press-send","memberId":"tk","genreId":"marketing","title":"プレス送付とリリース告知の窓口","start":"2027-02-16","end":"2027-02-28","progress":0,"status":"todo","milestone":false,"notes":"文面はりさいる。","link":""},{"id":"release-posts","memberId":"risairu","genreId":"marketing","title":"SNSのリリース告知","start":"2027-02-16","end":"2027-02-28","progress":0,"status":"todo","milestone":false,"notes":"","link":""}]}]}$necomos$::jsonb)
+on conflict (id) do nothing;
+
+create or replace function public.github_login()
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    auth.jwt() -> 'user_metadata' ->> 'user_name',
+    auth.jwt() -> 'user_metadata' ->> 'preferred_username',
+    ''
+  );
+$$;
+
+alter table public.editors enable row level security;
+alter table public.studio enable row level security;
+
+drop policy if exists editors_select_self on public.editors;
+create policy editors_select_self on public.editors
+  for select
+  to authenticated
+  using (github_login = public.github_login());
+
+drop policy if exists studio_select on public.studio;
+create policy studio_select on public.studio
+  for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists studio_insert on public.studio;
+create policy studio_insert on public.studio
+  for insert
+  to authenticated
+  with check (
+    exists (
+      select 1 from public.editors
+      where github_login = public.github_login()
+    )
+  );
+
+drop policy if exists studio_update on public.studio;
+create policy studio_update on public.studio
+  for update
+  to authenticated
+  using (
+    exists (
+      select 1 from public.editors
+      where github_login = public.github_login()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.editors
+      where github_login = public.github_login()
+    )
+  );
+
+grant select on public.studio to anon, authenticated;
+grant insert, update on public.studio to authenticated;
+grant select on public.editors to authenticated;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.studio;
+exception
+  when duplicate_object then null;
+end $$;

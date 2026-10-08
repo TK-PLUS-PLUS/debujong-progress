@@ -9,7 +9,6 @@
   const ZOOM_WIDTH = { day: 36, week: 24, month: 7 };
   const COLORS = ["#c2412d", "#2f6f5e", "#3d5a80", "#c4892a", "#6b4c7a", "#8c4a3a"];
   const DRAFT_KEY = "necomos-gantt-draft-v2";
-  const SETTINGS_KEY = "necomos-gantt-github-v1";
   const BANNER_KEY = "necomos-gantt-banner-v1";
   const THEME_KEY = "necomos-theme";
 
@@ -25,6 +24,18 @@
     genre: "all",
     query: "",
     dirty: false,
+    session: null,
+    canEdit: false,
+    syncLabel: "",
+    clientId: (() => {
+      const key = "necomos-client-id";
+      let id = sessionStorage.getItem(key);
+      if (!id) {
+        id = `client_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        sessionStorage.setItem(key, id);
+      }
+      return id;
+    })(),
     editingTaskId: null,
     editingMemberId: null,
     editingGenreId: null,
@@ -139,11 +150,37 @@
     }, null, 2)}\n`;
   }
 
-  function touch() {
+  let supabase = null;
+  let saveTimer = null;
+
+  function studioPayload(data) {
+    return {
+      version: 2,
+      studio: data.studio,
+      updated: data.updated,
+      genres: data.genres,
+      projects: data.projects,
+    };
+  }
+
+  function markDirty() {
     state.studio.updated = toISODate(new Date());
     state.dirty = true;
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: state.studio }));
+    scheduleSave();
+  }
+
+  function touch() {
+    markDirty();
     render();
+  }
+
+  function denyEdit() {
+    if (state.canEdit) return false;
+    setMessage(supabaseConfig()
+      ? "GitHubでログインすると編集できます。"
+      : "データベース未接続のため、いまは閲覧のみです。", true);
+    return true;
   }
 
   function setMessage(text, isError) {
@@ -152,86 +189,113 @@
     node.classList.toggle("is-error", Boolean(isError));
   }
 
-  function loadSettings() {
-    let saved = {};
-    try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { saved = {}; }
-    if (!saved.token) {
-      try {
-        const old = JSON.parse(localStorage.getItem("debujong-gantt-github-v1")) || {};
-        if (old.token) saved.token = old.token;
-      } catch { /* ignore */ }
-    }
-    if (saved.repo === "debujong-progress") saved.repo = "necomos-studio";
-    return saved;
-  }
-
-  function saveSettings(extra) {
-    const current = loadSettings();
-    const next = {
-      ...current,
-      studio: $("sStudio").value.trim(),
-      owner: $("sOwner").value.trim(),
-      repo: $("sRepo").value.trim(),
-      branch: $("sBranch").value.trim(),
-      path: $("sPath").value.trim(),
-      ...extra,
-    };
-    if ($("sRemember").checked) next.token = $("sToken").value.trim();
-    else delete next.token;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    return next;
-  }
-
   function fillSettings() {
-    const saved = loadSettings();
-    $("sStudio").value = state.studio?.studio || saved.studio || "NECOMOS STUDIO";
-    $("sOwner").value = saved.owner || "TK-PLUS-PLUS";
-    $("sRepo").value = saved.repo || "necomos-studio";
-    $("sBranch").value = saved.branch || "main";
-    $("sPath").value = saved.path || "schedule.json";
-    $("sToken").value = saved.token || "";
-    $("sRemember").checked = Boolean(saved.token);
+    $("sStudio").value = state.studio?.studio || "NECOMOS STUDIO";
     $("settingsMessage").textContent = "";
   }
 
-  function githubConfig() {
-    return {
-      owner: $("sOwner").value.trim(),
-      repo: $("sRepo").value.trim(),
-      branch: $("sBranch").value.trim(),
-      path: $("sPath").value.trim(),
-      token: $("sToken").value.trim(),
-    };
+  function supabaseConfig() {
+    const cfg = window.NECOMOS_SUPABASE || {};
+    if (!cfg.url || !cfg.anonKey) return null;
+    return cfg;
   }
 
-  function contentsUrl(config) {
-    const path = config.path.split("/").map(encodeURIComponent).join("/");
-    const ref = encodeURIComponent(config.branch);
-    return `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/contents/${path}?ref=${ref}`;
+  function githubLogin(user) {
+    const meta = user?.user_metadata || {};
+    return meta.user_name || meta.preferred_username || user?.email || "";
   }
 
-  async function githubRequest(url, config, options = {}) {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${config.token}`,
-        "X-GitHub-Api-Version": "2022-11-28",
-        ...(options.headers || {}),
-      },
+  function setSync(text) {
+    state.syncLabel = text || "";
+    const node = $("syncLabel");
+    if (node) node.textContent = state.syncLabel;
+  }
+
+  function paintAuth() {
+    const configured = Boolean(supabaseConfig());
+    const login = $("loginGitHub");
+    const logout = $("logoutGitHub");
+    const who = $("sessionUser");
+    if (login) login.hidden = !configured || Boolean(state.session);
+    if (logout) logout.hidden = !state.session;
+    if (who) {
+      who.hidden = !state.session;
+      who.textContent = state.session ? githubLogin(state.session) : "";
+    }
+    document.body.dataset.editable = state.canEdit ? "1" : "0";
+    document.querySelectorAll(".needs-edit").forEach((node) => {
+      node.disabled = !state.canEdit;
     });
-    const text = await response.text();
-    let body = null;
-    if (text) {
-      try { body = JSON.parse(text); } catch { body = { message: text }; }
+  }
+
+  async function ensureClient() {
+    const cfg = supabaseConfig();
+    if (!cfg) return null;
+    if (supabase) return supabase;
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    supabase = createClient(cfg.url, cfg.anonKey);
+    return supabase;
+  }
+
+  function scheduleSave() {
+    if (!state.canEdit) return;
+    clearTimeout(saveTimer);
+    setSync("同期中");
+    saveTimer = setTimeout(() => {
+      pushStudio().catch((error) => setMessage(`保存できませんでした。${error.message}`, true));
+    }, 1000);
+  }
+
+  async function pushStudio() {
+    const client = await ensureClient();
+    if (!client || !state.canEdit || !state.studio) return;
+    setSync("同期中");
+    const { error } = await client.from("studio").upsert({
+      id: "necomos",
+      data: studioPayload(state.studio),
+      client_id: state.clientId,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    state.dirty = false;
+    setSync("保存済み");
+  }
+
+  function subscribeStudio(client) {
+    client.channel("studio-necomos")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "studio",
+        filter: "id=eq.necomos",
+      }, (payload) => {
+        const row = payload.new;
+        if (!row?.data) return;
+        if (row.client_id === state.clientId) {
+          state.dirty = false;
+          setSync("保存済み");
+          return;
+        }
+        if (state.dirty) return;
+        applyData(row.data);
+        setSync("更新を反映しました");
+      })
+      .subscribe();
+  }
+
+  async function refreshAccess(client) {
+    const { data } = await client.auth.getSession();
+    state.session = data.session?.user || null;
+    state.canEdit = false;
+    if (!state.session) {
+      paintAuth();
+      return;
     }
-    if (!response.ok) {
-      const message = body?.message || `GitHub API ${response.status}`;
-      const error = new Error(message);
-      error.status = response.status;
-      throw error;
-    }
-    return body;
+    const login = githubLogin(state.session);
+    const { data: editor } = await client.from("editors").select("github_login").eq("github_login", login).maybeSingle();
+    state.canEdit = Boolean(editor);
+    paintAuth();
+    if (!state.canEdit) setMessage("この GitHub アカウントでは編集できません。", true);
   }
 
   function pack(tasks) {
@@ -321,7 +385,11 @@
       const nextText = next ? ` ・ 次の節目 ${next.date.replaceAll("-", "/")} ${next.title}` : "";
       return `<a class="card" href="#/${esc(item.id)}"><strong>${esc(item.name)}</strong><span>${item.tasks.length} タスク ・ 完了 ${done}${esc(nextText)}</span></a>`;
     }).join("");
-    $("main").innerHTML = `<div class="cards">${cards}<button type="button" class="card" id="createProject"><strong>新しいプロジェクト</strong><span>名前を付けてガントを追加します</span></button></div>`;
+    const create = state.canEdit
+      ? `<button type="button" class="card needs-edit" id="createProject"><strong>新しいプロジェクト</strong><span>名前を付けてガントを追加します</span></button>`
+      : "";
+    $("main").innerHTML = `<div class="cards">${cards}${create}</div>`;
+    paintAuth();
   }
 
   function renderChrome() {
@@ -550,9 +618,11 @@
     const tasks = visibleTasks();
     if (state.view === "list") renderList(tasks);
     else renderChart(tasks);
+    paintAuth();
   }
 
   function openTaskDialog(task) {
+    if (denyEdit()) return;
     const current = project();
     if (!current.members.length) {
       setMessage("先にメンバーを追加してください。", true);
@@ -612,6 +682,7 @@
   }
 
   function openMemberDialog(member) {
+    if (denyEdit()) return;
     state.editingMemberId = member?.id || null;
     $("memberDialogTitle").textContent = member ? "メンバーを編集" : "メンバーを追加";
     $("deleteMember").hidden = !member;
@@ -623,6 +694,7 @@
   }
 
   function openGenreDialog(genre) {
+    if (denyEdit()) return;
     state.editingGenreId = genre?.id || null;
     $("genreDialogTitle").textContent = genre ? "ジャンルを編集" : "ジャンルを追加";
     $("deleteGenre").hidden = !genre;
@@ -633,6 +705,7 @@
   }
 
   function openMilestoneDialog(item) {
+    if (denyEdit()) return;
     state.editingMilestoneId = item?.id || null;
     $("milestoneDialogTitle").textContent = item ? "マイルストーンを編集" : "マイルストーンを追加";
     $("deleteMilestone").hidden = !item;
@@ -643,6 +716,7 @@
   }
 
   function openProjectDialog(item) {
+    if (denyEdit()) return;
     state.editingProjectId = item?.id || null;
     $("projectDialogTitle").textContent = item ? "プロジェクトを編集" : "プロジェクトを追加";
     $("deleteProject").hidden = !item;
@@ -668,74 +742,11 @@
     if (task.milestone) task.end = task.start;
   }
 
-  function encodeBase64(text) {
-    const bytes = new TextEncoder().encode(text);
-    let binary = "";
-    bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-    return btoa(binary);
-  }
-
-  async function saveToGitHub() {
-    if (!$("settingsDialog").open) fillSettings();
-    const config = githubConfig();
-    if (!config.token) {
-      if (!$("settingsDialog").open) $("settingsDialog").showModal();
-      $("settingsMessage").textContent = "トークンを入れて、もう一度「GitHubに保存」を押してください。";
-      return;
-    }
-    $("settingsMessage").textContent = "保存しています…";
-    try {
-      let sha;
-      try {
-        const current = await githubRequest(contentsUrl(config), config);
-        sha = current.sha;
-      } catch (error) {
-        if (error.status !== 404) throw error;
-      }
-      state.studio.studio = $("sStudio").value.trim() || state.studio.studio;
-      state.studio.updated = toISODate(new Date());
-      const content = encodeBase64(serialize(state.studio));
-      const body = {
-        message: "ガントチャートの進捗を更新",
-        content,
-        branch: config.branch,
-      };
-      if (sha) body.sha = sha;
-      await githubRequest(contentsUrl(config).split("?")[0], config, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      state.fileText = serialize(state.studio);
-      state.dirty = false;
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: state.studio }));
-      saveSettings();
-      $("settingsMessage").textContent = "保存しました。しばらくすると公開ページにも反映されます。";
-      render();
-    } catch (error) {
-      $("settingsMessage").textContent = `保存できませんでした。${error.message}`;
-    }
-  }
-
-  async function testGitHub() {
-    const config = githubConfig();
-    saveSettings();
-    if (!config.token) {
-      $("settingsMessage").textContent = "トークンが空です。";
-      return;
-    }
-    try {
-      const file = await githubRequest(contentsUrl(config), config);
-      $("settingsMessage").textContent = `接続できました。${config.path} の更新を確認しています（${file.sha.slice(0, 7)}）。`;
-    } catch (error) {
-      $("settingsMessage").textContent = error.status === 404
-        ? "接続できましたが、指定ブランチにファイルがまだありません。保存すると作成されます。"
-        : `接続できませんでした。${error.message}`;
-    }
-  }
-
   function downloadJson() {
-    state.studio.studio = $("sStudio").value.trim() || state.studio.studio;
+    if ($("sStudio") && state.studio) {
+      const name = $("sStudio").value.trim();
+      if (name) state.studio.studio = name;
+    }
     const blob = new Blob([serialize(state.studio)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -743,7 +754,6 @@
     link.download = "schedule.json";
     link.click();
     URL.revokeObjectURL(url);
-    saveSettings();
   }
 
   function normalize(data) {
@@ -783,25 +793,44 @@
     render();
   }
 
-  async function load() {
+  async function loadFile() {
     const response = await fetch("./schedule.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`schedule.json を読めませんでした (${response.status})`);
     const text = await response.text();
-    const data = JSON.parse(text);
-    let draft = null;
-    try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { draft = null; }
-    applyData(data, text);
-    if (draft?.data && JSON.stringify(draft.data) !== JSON.stringify(state.studio)) {
-      const useDraft = window.confirm("このブラウザに未共有の下書きがあります。下書きを開きますか？");
-      if (useDraft) {
-        state.studio = normalize(draft.data);
-        state.dirty = true;
-        render();
-      }
+    return { text, data: JSON.parse(text) };
+  }
+
+  async function load() {
+    const file = await loadFile();
+    const client = await ensureClient();
+    if (!client) {
+      applyData(file.data, file.text);
+      setMessage("データベース未接続のため、いまは閲覧のみです。");
+      paintAuth();
+      return;
     }
+    try {
+      await refreshAccess(client);
+      const { data: row, error } = await client.from("studio").select("data, client_id").eq("id", "necomos").maybeSingle();
+      if (error) throw error;
+      if (row?.data) {
+        applyData(row.data);
+      } else {
+        applyData(file.data, file.text);
+        if (state.canEdit) await pushStudio();
+      }
+      subscribeStudio(client);
+      if (!state.session) setMessage("閲覧中です。編集するには GitHub でログインしてください。");
+    } catch (error) {
+      applyData(file.data, file.text);
+      state.canEdit = false;
+      setMessage("データベースの準備が終わると、ログインして編集できます。");
+    }
+    paintAuth();
   }
 
   function bindMilestoneDrag(event) {
+    if (denyEdit()) return;
     const mark = event.target.closest(".ms-mark");
     const current = project();
     const item = current.milestones.find((entry) => entry.id === mark.dataset.milestone);
@@ -831,6 +860,7 @@
   }
 
   function bindChartDragOnce(event) {
+    if (denyEdit()) return;
     const bar = event.target.closest(".bar");
     const task = project().tasks.find((item) => item.id === bar.dataset.task);
     if (!task) return;
@@ -880,6 +910,7 @@
   }
 
   function openMemberRoster() {
+    if (denyEdit()) return;
     const current = project();
     $("memberRosterMessage").textContent = "";
     $("memberRosterList").innerHTML = current.members.map((member) => rosterRow("member", member)).join("");
@@ -887,6 +918,7 @@
   }
 
   function openGenreRoster() {
+    if (denyEdit()) return;
     $("genreRosterMessage").textContent = "";
     $("genreRosterList").innerHTML = state.studio.genres.map((genre) => rosterRow("genre", genre)).join("");
     $("genreRoster").showModal();
@@ -1137,34 +1169,51 @@
       event.preventDefault();
       const name = $("sStudio").value.trim();
       const changed = Boolean(name) && name !== state.studio.studio;
+      if (changed && denyEdit()) return;
       if (changed) state.studio.studio = name;
-      saveSettings();
       $("settingsDialog").close();
       if (changed) touch();
       else render();
     };
-    $("saveGitHub").onclick = () => saveToGitHub();
-    $("testGitHub").onclick = () => testGitHub();
+    $("loginGitHub").onclick = async () => {
+      const client = await ensureClient();
+      if (!client) {
+        setMessage("データベースが未設定です。", true);
+        return;
+      }
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "github",
+        options: { redirectTo: `${location.origin}${location.pathname}` },
+      });
+      if (error) setMessage(error.message, true);
+    };
+    $("logoutGitHub").onclick = async () => {
+      const client = await ensureClient();
+      if (client) await client.auth.signOut();
+      state.session = null;
+      state.canEdit = false;
+      paintAuth();
+      setMessage("ログアウトしました。");
+    };
     $("downloadJson").onclick = () => downloadJson();
     $("importJson").onchange = async (event) => {
       const file = event.target.files[0];
       event.target.value = "";
-      if (!file) return;
+      if (!file || denyEdit()) return;
       try {
         const text = await file.text();
         applyData(JSON.parse(text), text);
         touch();
-        setMessage(`${file.name} を読み込みました。共有するには保存してください。`);
+        setSync("同期中");
       } catch (error) {
         setMessage(error.message, true);
       }
     };
     $("reloadFile").onclick = async () => {
-      localStorage.removeItem(DRAFT_KEY);
       $("helpDialog").close();
       try {
         await load();
-        setMessage("schedule.json の内容に戻しました。");
+        setMessage("最新の内容に戻しました。");
       } catch (error) {
         setMessage(error.message, true);
       }
@@ -1264,6 +1313,10 @@
     $("main").addEventListener("input", (event) => {
       const input = event.target.closest("[data-progress]");
       if (!input || !project()) return;
+      if (denyEdit()) {
+        render();
+        return;
+      }
       const task = project().tasks.find((item) => item.id === input.dataset.progress);
       if (!task) return;
       task.progress = Number(input.value);
@@ -1274,9 +1327,7 @@
       if (pct) pct.textContent = `${task.progress}%`;
       const statusCell = input.closest("tr")?.lastElementChild;
       if (statusCell) statusCell.textContent = STATUS[task.status] || task.status;
-      state.studio.updated = toISODate(new Date());
-      state.dirty = true;
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: state.studio }));
+      markDirty();
       renderChrome();
     });
     $("main").addEventListener("pointerdown", (event) => {

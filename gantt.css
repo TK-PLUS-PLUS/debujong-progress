@@ -87,7 +87,8 @@ h1 {
   letter-spacing: -0.02em;
 }
 
-.updated { margin: 0; color: var(--muted); font-size: 13px; }
+.updated, .sync-label, #sessionUser { margin: 0; color: var(--muted); font-size: 13px; }
+.needs-edit:disabled { opacity: 0.4; cursor: default; }
 
 .top-actions, .toolbar-actions, .dialog-actions {
   display: flex;
